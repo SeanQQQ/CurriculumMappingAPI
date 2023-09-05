@@ -8,7 +8,7 @@ using System.Xml.Linq;
 namespace CurriculumMappingAPI.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    //[Route("[controller]")]
     public class SubjectController : ControllerBase
     {
         private readonly ILogger<SubjectController> _logger;
@@ -18,54 +18,89 @@ namespace CurriculumMappingAPI.Controllers
             _logger = logger;
         }
 
-        [HttpGet(Name = "GetSubject")]
-        public object GetSubjects()
+
+        [HttpGet]
+        [Route("[controller]/x")]
+        public object get()
         {
-            using SqlConnection con = new("Server=tcp:cmt.database.windows.net,1433;Initial Catalog=curriculumDb;Persist Security Info=False;User ID=sean;Password=getoff12!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;");
-            using SqlCommand cmd = new("Select * from Subjects", con);
-            con.Open();
-            SqlDataReader reader = cmd.ExecuteReader();
+            return new { foo = "bar" };
+        }
 
-            List<Subject> subjects = new();
-            List<Link> links = new();
-
-            while (reader.Read())
+        [HttpGet]
+        [Route("[controller]")]
+        public object GetSubjects(string CourseId)
+        {
+            try
             {
-                subjects.Add(new Subject
-                {
-                    SubjectId = reader["SubjectId"].ToString(),
-                    SubjectName = reader["SubjectTitle"].ToString(),
-                    CreditPoints = int.Parse(reader["CreditPoints"].ToString()),
-                });
 
-                if (!reader.IsDBNull("Prerequsites"))
+                using SqlConnection con = new("Server=tcp:cmt.database.windows.net,1433;Initial Catalog=curriculumDb;Persist Security Info=False;User ID=sean;Password=getoff12!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;");
+                using SqlCommand cmd = new($"select s.* from CourseSubject cs join Subjects s on s.SubjectID=cs.SubjectID  where CourseId = '{CourseId}'", con);
+                con.Open();
+                SqlDataReader reader = cmd.ExecuteReader();
+
+                List<Subject> subjects = new();
+                List<Link> links = new();
+
+                while (reader.Read())
                 {
-                    var preReqs = reader["Prerequsites"].ToString().Split(',');
-                    foreach(string req in preReqs)
+                    subjects.Add(new Subject
                     {
-                        links.Add(new Link{
-                            source = req,
-                            target= reader["SubjectId"].ToString()
+                        SubjectId = reader["SubjectId"].ToString(),
+                        SubjectName = reader["SubjectTitle"].ToString(),
+                        CreditPoints = int.Parse(reader["CreditPoints"].ToString()),
+                        FirstSemRecomended = bool.Parse(reader["firstSemRecomended"].ToString()),
+                    });
+
+                    if (!reader.IsDBNull("Prerequsites"))
+                    {
+                        var preReqs = reader["Prerequsites"].ToString().Split(',');
+                        foreach(string req in preReqs)
+                        {
+                            links.Add(new Link{
+                                source = req,
+                                target= reader["SubjectId"].ToString()
+                            }
+                            );
                         }
-                        );
                     }
                 }
+
+                //Step to Clean Links (Remove Links to Subjects not included in selection) 
+                foreach(var link in links.ToList())
+                {
+                    if(subjects.Find(s => s.SubjectId == link.source) == null)
+                    {
+                        links.Remove(link);
+                    }
+                }
+
+
+                //This code may not be very good
+                var rootSubjects = links.Select(l => subjects.Find(sub => sub.SubjectId == l.source && !links.Select(l => l.target).Contains(sub.SubjectId))).Distinct().Where(sub => sub != null);
+
+                foreach (var subject in rootSubjects)
+                {
+                    List<Subject> visited = new();
+                    subject.RootDescendenceDepth = GetRootDecendentsDepth(subjects, links, subject, visited);
+                }
+
+                return new
+                {
+                    subjects = subjects.OrderByDescending(s => s.RootDescendenceDepth).ToList().OrderByDescending(s => s.FirstSemRecomended),
+                    links
+                };
             }
-
-            //This code may not be very good
-            var rootSubjects = links.Select(l => subjects.Find(sub => sub.SubjectId == l.source && !links.Select(l => l.target).Contains(sub.SubjectId))).Distinct().Where(sub => sub != null);
-
-            foreach (var subject in rootSubjects)
+            catch (Exception ex)
             {
-                List<Subject> visited = new();
-                subject.RootDescendenceDepth = GetRootDecendentsDepth(subjects, links, subject, visited);
+                return ex.Message;
             }
+        }
 
-            return new
-            {
-                subjects = subjects.OrderByDescending(s => s.RootDescendenceDepth).ToList(),
-                links
-            };
+        [HttpGet]
+        [Route("[controller]/GetSemesters")]
+        public object GetSemesters()
+        {
+            return new { foo = "bar" };
         }
 
         private int GetRootDecendentsDepth(List<Subject> subjects, List<Link> links, Subject subject, List<Subject> visited)
@@ -100,6 +135,7 @@ namespace CurriculumMappingAPI.Controllers
         public string SubjectId { get; set; }
         public int CreditPoints { get; set; }
         public int RootDescendenceDepth { get; set; }
+        public bool FirstSemRecomended { get; set; }
     }
 
     class Link
