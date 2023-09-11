@@ -33,6 +33,8 @@ namespace CurriculumMappingAPI.Controllers
             try
             {
 
+                int cpPerSem = 24;
+
                 using SqlConnection con = new("Server=tcp:cmt.database.windows.net,1433;Initial Catalog=curriculumDb;Persist Security Info=False;User ID=sean;Password=getoff12!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;");
                 using SqlCommand cmd = new($"select s.*, cs.Term from CourseSubject cs join Subjects s on s.SubjectID=cs.SubjectID  where CourseId = '{CourseId}'", con);
                 con.Open();
@@ -64,17 +66,25 @@ namespace CurriculumMappingAPI.Controllers
                             );
                         }
                     }
+
+
                 }
+                reader.Close();
+
+                using SqlCommand cmd2 = new($"select cpPerSem from Courses where CourseId = '{CourseId}'", con);
+                SqlDataReader reader2 = cmd2.ExecuteReader();
+                reader2.Read();
+                cpPerSem = int.Parse(reader2["cpPerSem"].ToString());
 
                 //Step to Clean Links (Remove Links to Subjects not included in selection) 
-                foreach(var link in links.ToList())
+                foreach (var link in links.ToList())
                 {
                     if(subjects.Find(s => s.SubjectId == link.source) == null)
                     {
                         links.Remove(link);
                     }
                 }
-
+                reader2.Close();
 
                 //This code may not be very good
                 var rootSubjects = links.Select(l => subjects.Find(sub => sub.SubjectId == l.source && !links.Select(l => l.target).Contains(sub.SubjectId))).Distinct().Where(sub => sub != null);
@@ -88,7 +98,8 @@ namespace CurriculumMappingAPI.Controllers
                 return new
                 {
                     subjects = subjects.OrderByDescending(s => s.RootDescendenceDepth).ToList().OrderByDescending(s => s.FirstSemRecomended),
-                    links
+                    links,
+                    cpPerSem
                 };
             }
             catch (Exception ex)
