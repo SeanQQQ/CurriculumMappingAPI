@@ -34,7 +34,7 @@ namespace CurriculumMappingAPI.Controllers
             {
 
                 using SqlConnection con = new("Server=tcp:cmt.database.windows.net,1433;Initial Catalog=curriculumDb;Persist Security Info=False;User ID=sean;Password=getoff12!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;");
-                using SqlCommand cmd = new($"select s.* from CourseSubject cs join Subjects s on s.SubjectID=cs.SubjectID  where CourseId = '{CourseId}'", con);
+                using SqlCommand cmd = new($"select s.*, cs.Term from CourseSubject cs join Subjects s on s.SubjectID=cs.SubjectID  where CourseId = '{CourseId}'", con);
                 con.Open();
                 SqlDataReader reader = cmd.ExecuteReader();
 
@@ -49,6 +49,7 @@ namespace CurriculumMappingAPI.Controllers
                         SubjectName = reader["SubjectTitle"].ToString(),
                         CreditPoints = int.Parse(reader["CreditPoints"].ToString()),
                         FirstSemRecomended = bool.Parse(reader["firstSemRecomended"].ToString()),
+                        SemesterOrder = int.Parse(reader["Term"].ToString()),
                     });
 
                     if (!reader.IsDBNull("Prerequsites"))
@@ -136,6 +137,7 @@ namespace CurriculumMappingAPI.Controllers
         public int CreditPoints { get; set; }
         public int RootDescendenceDepth { get; set; }
         public bool FirstSemRecomended { get; set; }
+        public int SemesterOrder { get; set; }
     }
 
     class Link

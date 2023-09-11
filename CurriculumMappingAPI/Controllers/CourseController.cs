@@ -25,7 +25,8 @@ namespace CurriculumMappingAPI.Controllers
                     courses.Add(new Course
                     {
                         CourseId = reader["CourseId"].ToString(),
-                        CourseName = reader["CourseName"].ToString()
+                        CourseName = reader["CourseName"].ToString(),
+                        Note = reader["Note"].ToString()
                     });
                 }
 
@@ -45,5 +46,6 @@ namespace CurriculumMappingAPI.Controllers
     {
         public string CourseName { get; set; }
         public string CourseId { get; set; }
+        public string Note { get; set; }
     }
 }
